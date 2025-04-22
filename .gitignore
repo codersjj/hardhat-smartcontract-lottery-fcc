@@ -12,3 +12,7 @@
 #!.yarn/cache
 .pnp.*
 node_modules
+
+# Hardhat files
+/cache
+/artifacts
