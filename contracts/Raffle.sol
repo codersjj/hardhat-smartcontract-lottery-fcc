@@ -14,8 +14,15 @@ import {AutomationCompatibleInterface} from "@chainlink/contracts/src/v0.8/autom
 
 error Raffle__NotEnoughETHEntered();
 error Raffle__TransferFailed();
+error Raffle__NotOpen();
 
 contract Raffle is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
+    // Type declarations
+    enum RaffleState {
+        OPEN,
+        CALCULATING
+    } // uint8 0 = OPEN, 1 = CALCULATING
+
     // State Variables
     uint256 private immutable i_entranceFee;
     address payable[] private s_players;
@@ -27,6 +34,9 @@ contract Raffle is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
 
     // Lottery Variables
     address private s_recentWinner;
+    // bool private s_isOpen; // to true, false
+    // uint256 private s_state; // to pending, open, closed, calculating
+    RaffleState private s_raffleState;
 
     // Events
     event RaffleEnter(address indexed player);
@@ -44,12 +54,17 @@ contract Raffle is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
         i_gasLane = gasLane;
         i_subscriptionId = subscriptionId;
         i_callbackGasLimit = callbackGasLimit;
+        // s_raffleState = RaffleState(0);
+        s_raffleState = RaffleState.OPEN;
     }
 
     function enterRaffle() public payable {
         // require(msg.value >= i_entranceFee, "Not enough ETH to enter the raffle");
         if (msg.value < i_entranceFee) {
             revert Raffle__NotEnoughETHEntered();
+        }
+        if (s_raffleState != RaffleState.OPEN) {
+          revert Raffle__NotOpen();
         }
         s_players.push(payable(msg.sender));
 
@@ -77,6 +92,8 @@ contract Raffle is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
         // Request the random number
         // Once we get it, do something with it
         // 2 transaction process
+        s_raffleState = RaffleState.CALCULATING;
+
         uint256 requestId = s_vrfCoordinator.requestRandomWords(
             VRFV2PlusClient.RandomWordsRequest({
                 keyHash: i_gasLane,
@@ -100,6 +117,9 @@ contract Raffle is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
         uint256 indexOfWinner = randomWords[0] % s_players.length;
         address payable recentWinner = s_players[indexOfWinner];
         s_recentWinner = recentWinner;
+
+        s_raffleState = RaffleState.OPEN;
+
         (bool success, ) = recentWinner.call{value: address(this).balance}("");
         // require(success)
         if (!success) {
