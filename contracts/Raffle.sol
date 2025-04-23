@@ -37,6 +37,8 @@ contract Raffle is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
     // bool private s_isOpen; // to true, false
     // uint256 private s_state; // to pending, open, closed, calculating
     RaffleState private s_raffleState;
+    uint256 private s_lastTimestamp;
+    uint256 private immutable i_interval;
 
     // Events
     event RaffleEnter(address indexed player);
@@ -48,7 +50,8 @@ contract Raffle is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
         uint256 entranceFee,
         bytes32 gasLane,
         uint256 subscriptionId,
-        uint32 callbackGasLimit
+        uint32 callbackGasLimit,
+        uint256 interval
     ) VRFConsumerBaseV2Plus(vrfCoordinator) {
         i_entranceFee = entranceFee;
         i_gasLane = gasLane;
@@ -56,6 +59,8 @@ contract Raffle is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
         i_callbackGasLimit = callbackGasLimit;
         // s_raffleState = RaffleState(0);
         s_raffleState = RaffleState.OPEN;
+        s_lastTimestamp = block.timestamp;
+        i_interval = interval;
     }
 
     function enterRaffle() public payable {
@@ -64,7 +69,7 @@ contract Raffle is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
             revert Raffle__NotEnoughETHEntered();
         }
         if (s_raffleState != RaffleState.OPEN) {
-          revert Raffle__NotOpen();
+            revert Raffle__NotOpen();
         }
         s_players.push(payable(msg.sender));
 
@@ -84,7 +89,14 @@ contract Raffle is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
      */
     function checkUpkeep(
         bytes calldata /* checkData */
-    ) external view override returns (bool upkeepNeeded, bytes memory /* performData */) {}
+    ) external view override returns (bool upkeepNeeded, bytes memory /* performData */) {
+        bool isOpen = s_raffleState == RaffleState.OPEN;
+        bool timePassed = (block.timestamp - s_lastTimestamp) > i_interval;
+        bool hasPlayers = s_players.length > 0;
+        bool hasBalance = address(this).balance > 0;
+        upkeepNeeded = isOpen && timePassed && hasPlayers && hasBalance;
+        return (upkeepNeeded, "");
+    }
 
     function performUpkeep(bytes calldata /* performData */) external override {}
 
@@ -119,6 +131,7 @@ contract Raffle is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
         s_recentWinner = recentWinner;
 
         s_raffleState = RaffleState.OPEN;
+        s_players = new address payable[](0);
 
         (bool success, ) = recentWinner.call{value: address(this).balance}("");
         // require(success)
