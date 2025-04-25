@@ -95,4 +95,37 @@ const { developmentChains, networkConfig } = require("../../helper-hardhat-confi
           assert(upkeepNeeded)
         })
       })
+
+      describe("performUpkeep", () => {
+        it("it can only run if checkUpkeep is true", async () => {
+          await raffle.enterRaffle({ value: entranceFee })
+          await network.provider.send("evm_increaseTime", [Number(interval) + 1])
+          await network.provider.send("evm_mine")
+          const tx = await raffle.performUpkeep("0x")
+          assert(tx)
+        })
+
+        it("reverts when checkUpkeep is false", async () => {
+          await expect(raffle.performUpkeep("0x")).to.be.revertedWithCustomError(
+            raffle,
+            "Raffle__UpkeepNotNeeded",
+          )
+        })
+
+        it("updates the raffle state, emits an event, and calls the vrf coordinator", async () => {
+          await raffle.enterRaffle({ value: entranceFee })
+          await network.provider.send("evm_increaseTime", [Number(interval) + 1])
+          await network.provider.send("evm_mine")
+          const txResponse = await raffle.performUpkeep("0x")
+          const txReceipt = await txResponse.wait(1)
+          // console.log("txReceipt.events", txReceipt.events)
+          // console.log("txReceipt.logs", txReceipt.logs)
+          // https://docs.ethers.org/v6/api/contract/#ContractTransactionReceipt-logs
+          const requestId = txReceipt.logs[1].args[0]
+          console.log("🚀 ~ it ~ requestId:", requestId)
+          const raffleState = await raffle.getRaffleState()
+          assert(requestId > 0)
+          assert(raffleState === 1n)
+        })
+      })
     })
