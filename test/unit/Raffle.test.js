@@ -57,4 +57,11 @@ const { developmentChains, networkConfig } = require("../../helper-hardhat-confi
           )
         })
       })
+
+      describe("checkUpkeep", () => {
+        it("returns false if people haven't send any ETH", async () => {
+          await network.provider.send("evm_increaseTime", [Number(interval) + 1])
+          await network.provider.send("evm_mine", [])
+        })
+      })
     })
