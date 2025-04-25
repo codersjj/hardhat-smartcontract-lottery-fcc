@@ -5,7 +5,7 @@ const { developmentChains, networkConfig } = require("../../helper-hardhat-confi
 !developmentChains.includes(network.name)
   ? describe.skip
   : describe("Raffle Unit Tests", () => {
-      let raffle, vrfCoordinatorV2_5Mock, deployer
+      let raffle, vrfCoordinatorV2_5Mock, deployer, entranceFee
       const chainId = network.config.chainId
       const currNetworkConfig = networkConfig[chainId]
 
@@ -15,6 +15,7 @@ const { developmentChains, networkConfig } = require("../../helper-hardhat-confi
 
         raffle = await ethers.getContract("Raffle", deployer)
         vrfCoordinatorV2_5Mock = await ethers.getContract("VRFCoordinatorV2_5Mock", deployer)
+        entranceFee = await raffle.getEntranceFee()
       })
 
       describe("constructor", () => {
@@ -36,10 +37,12 @@ const { developmentChains, networkConfig } = require("../../helper-hardhat-confi
           )
         })
         it("records players when they enter", async () => {
-          const entranceFee = await raffle.getEntranceFee()
           await raffle.enterRaffle({ value: entranceFee })
           const player = await raffle.getPlayer(0)
           assert.equal(player, deployer)
+        })
+        it("emits event on enter", async () => {
+          await expect(raffle.enterRaffle({ value: entranceFee })).to.emit(raffle, "RaffleEnter")
         })
       })
     })
