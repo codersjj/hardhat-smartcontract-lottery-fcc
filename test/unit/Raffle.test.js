@@ -5,7 +5,7 @@ const { developmentChains, networkConfig } = require("../../helper-hardhat-confi
 !developmentChains.includes(network.name)
   ? describe.skip
   : describe("Raffle Unit Tests", () => {
-      let raffle, vrfCoordinatorV2_5Mock, deployer, entranceFee
+      let raffle, vrfCoordinatorV2_5Mock, deployer, entranceFee, interval
       const chainId = network.config.chainId
       const currNetworkConfig = networkConfig[chainId]
 
@@ -16,6 +16,7 @@ const { developmentChains, networkConfig } = require("../../helper-hardhat-confi
         raffle = await ethers.getContract("Raffle", deployer)
         vrfCoordinatorV2_5Mock = await ethers.getContract("VRFCoordinatorV2_5Mock", deployer)
         entranceFee = await raffle.getEntranceFee()
+        interval = await raffle.getInterval()
       })
 
       describe("constructor", () => {
@@ -24,7 +25,6 @@ const { developmentChains, networkConfig } = require("../../helper-hardhat-confi
           const raffleState = await raffle.getRaffleState()
           // console.log("🚀 ~ it ~ raffleState:", raffleState)
           assert.equal(raffleState, 0)
-          const interval = await raffle.getInterval()
           assert.equal(interval, currNetworkConfig.interval)
         })
       })
@@ -43,6 +43,18 @@ const { developmentChains, networkConfig } = require("../../helper-hardhat-confi
         })
         it("emits event on enter", async () => {
           await expect(raffle.enterRaffle({ value: entranceFee })).to.emit(raffle, "RaffleEnter")
+        })
+        it("doesn't allow entrance when raffle is caculating", async () => {
+          await raffle.enterRaffle({ value: entranceFee })
+          // see: https://hardhat.org/hardhat-network/docs/reference#evm_increasetime
+          await network.provider.send("evm_increaseTime", [Number(interval) + 1])
+          await network.provider.send("evm_mine")
+          // we pretend to be a Chainlink Keeper
+          await raffle.performUpkeep("0x")
+          await expect(raffle.enterRaffle({ value: entranceFee })).to.revertedWithCustomError(
+            raffle,
+            "Raffle__NotOpen",
+          )
         })
       })
     })

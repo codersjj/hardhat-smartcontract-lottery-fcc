@@ -10,11 +10,12 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
   const chainId = network.config.chainId
   const currentNetworkConfig = networkConfig[chainId]
 
+  let vrfCoordinatorV2_5Mock = null
   let vrfCoordinatorV2_5Address = null
   let subscriptionId = null
 
   if (developmentChains.includes(network.name)) {
-    const vrfCoordinatorV2_5Mock = await ethers.getContract("VRFCoordinatorV2_5Mock")
+    vrfCoordinatorV2_5Mock = await ethers.getContract("VRFCoordinatorV2_5Mock")
     vrfCoordinatorV2_5Address = vrfCoordinatorV2_5Mock.target
 
     // create a subscription
@@ -49,6 +50,10 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     log: true,
     waitConfirmations: network.config.blockConfirmations || 1,
   })
+
+  if (developmentChains.includes(network.name)) {
+    await vrfCoordinatorV2_5Mock.addConsumer(subscriptionId, raffle.address)
+  }
 
   if (!developmentChains.includes(network.name) && process.env.ETHERSCAN_API_KEY) {
     log("Verifying...")
