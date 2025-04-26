@@ -130,17 +130,91 @@ const { developmentChains, networkConfig } = require("../../helper-hardhat-confi
       })
 
       describe("fulfillRandomWords", () => {
-        it("can only be called after performUpkeep", async () => {
+        beforeEach(async () => {
           await raffle.enterRaffle({ value: entranceFee })
           await network.provider.send("evm_increaseTime", [Number(interval) + 1])
           await network.provider.send("evm_mine")
+        })
 
+        it("can only be called after performUpkeep", async () => {
           await expect(
             vrfCoordinatorV2_5Mock.fulfillRandomWords(0, raffle.target),
           ).to.be.revertedWithCustomError(vrfCoordinatorV2_5Mock, "InvalidRequest")
           await expect(
             vrfCoordinatorV2_5Mock.fulfillRandomWords(1, raffle.target),
           ).to.be.revertedWithCustomError(vrfCoordinatorV2_5Mock, "InvalidRequest")
+        })
+
+        it("picks a winner, resets the lottery, and sends money", async () => {
+          const numAdditionalEntrants = 3
+          const startingAccountIndex = 1 // 0 is the deployer
+          const accounts = await ethers.getSigners()
+          for (
+            let i = startingAccountIndex;
+            i < startingAccountIndex + numAdditionalEntrants;
+            i++
+          ) {
+            const accountConnectedRaffle = await raffle.connect(accounts[i])
+            await accountConnectedRaffle.enterRaffle({ value: entranceFee })
+          }
+
+          const startingTimestamp = await raffle.getTimestamp()
+
+          // performUpkeep (mock being Chainlink Keepers)
+          // fulfillRandomWords (mock being Chainlink VRF)
+          // we will have to wait for the fulfillRandomWords to be called
+          await new Promise(async (resolve, reject) => {
+            let winnerStartingBalance = 0n
+
+            // Setting up the listener
+            raffle.once("WinnerPicked", async () => {
+              console.log("Found the event!")
+              try {
+                const recentWinner = await raffle.getRecentWinner()
+                console.log("🚀 ~ raffle.once ~ recentWinner:", recentWinner)
+                console.log(accounts[0].address)
+                console.log(accounts[1].address) // recentWinner
+                console.log(accounts[2].address)
+                console.log(accounts[3].address)
+                const raffleState = await raffle.getRaffleState()
+                const numberOfPlayers = await raffle.getNumberOfPlayers()
+                const endingTimestamp = await raffle.getTimestamp()
+                const winnerEndingBalance = await ethers.provider.getBalance(recentWinner)
+
+                assert(recentWinner, accounts[1].address)
+                assert.equal(raffleState, 0)
+                assert.equal(numberOfPlayers, 0)
+                assert(endingTimestamp > startingTimestamp)
+                assert.equal(
+                  winnerEndingBalance,
+                  winnerStartingBalance + entranceFee * BigInt(1 + numAdditionalEntrants),
+                )
+
+                resolve()
+              } catch (error) {
+                reject(error)
+              }
+            })
+            // below, we will fire the event, and the listener will pick it up, and resolve
+
+            try {
+              // mocking the Chainlink Keepers
+              const txResponse = await raffle.performUpkeep("0x")
+              const txReceipt = await txResponse.wait(1)
+
+              winnerStartingBalance = await ethers.provider.getBalance(accounts[1].address)
+              console.log("🚀 ~ awaitnewPromise ~ winnerStartingBalance:", winnerStartingBalance)
+
+              // mocking the Chainlink VRF
+              await vrfCoordinatorV2_5Mock.fulfillRandomWords(
+                txReceipt.logs[1].args[0],
+                raffle.target,
+              )
+            } catch (error) {
+              console.log(error)
+              reject(error)
+            }
+          })
         })
       })
     })
