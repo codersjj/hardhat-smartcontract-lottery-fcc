@@ -128,4 +128,19 @@ const { developmentChains, networkConfig } = require("../../helper-hardhat-confi
           assert(raffleState === 1n)
         })
       })
+
+      describe("fulfillRandomWords", () => {
+        it("can only be called after performUpkeep", async () => {
+          await raffle.enterRaffle({ value: entranceFee })
+          await network.provider.send("evm_increaseTime", [Number(interval) + 1])
+          await network.provider.send("evm_mine")
+
+          await expect(
+            vrfCoordinatorV2_5Mock.fulfillRandomWords(0, raffle.target),
+          ).to.be.revertedWithCustomError(vrfCoordinatorV2_5Mock, "InvalidRequest")
+          await expect(
+            vrfCoordinatorV2_5Mock.fulfillRandomWords(1, raffle.target),
+          ).to.be.revertedWithCustomError(vrfCoordinatorV2_5Mock, "InvalidRequest")
+        })
+      })
     })
