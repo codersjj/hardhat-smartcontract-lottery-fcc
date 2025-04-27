@@ -1,6 +1,12 @@
 // when it come to our staging tests, we only want our staging tests run when we're on a test net
 // we don't need to run our unit tests because out unit tests aren't checking that compatiility With a test net
 
+// 1. Get our SubId for Chainlink VRF
+// 2. Deploy our contract using SubId
+// 3. Register the contract with Chainlink VRF & it's SubId
+// 4. Register the contract with Chainlink Keepers
+// 5. Run staging tests
+
 const { network, getNamedAccounts, ethers } = require("hardhat")
 const { developmentChains } = require("../../helper-hardhat-config")
 const { expect, assert } = require("chai")
