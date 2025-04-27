@@ -1,6 +1,21 @@
-const { ethers } = require("hardhat")
+import { ethers } from "hardhat"
 
-const networkConfig = {
+export interface networkConfigItem {
+  name?: string
+  subscriptionId?: string
+  gasLane?: string
+  interval?: string
+  entranceFee?: string | bigint
+  callbackGasLimit?: string
+  vrfCoordinatorV2_5?: string
+  enableNativePayment?: boolean
+}
+
+export interface networkConfigInfo {
+  [key: string]: networkConfigItem
+}
+
+const networkConfig: networkConfigInfo = {
   11155111: {
     name: "sepolia",
     vrfCoordinatorV2_5: "0x9DdfaCa8183c41ad55329BdeeD9F6A8d53168B1B",
@@ -23,7 +38,6 @@ const networkConfig = {
 
 const developmentChains = ["hardhat", "localhost"]
 
-module.exports = {
-  networkConfig,
-  developmentChains,
-}
+const VERIFICATION_BLOCK_CONFIRMATIONS = 6
+
+export { networkConfig, developmentChains, VERIFICATION_BLOCK_CONFIRMATIONS }

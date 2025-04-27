@@ -25,3 +25,7 @@ node_modules
 
 # hardhat
 deployments
+
+# TypeChain files
+/typechain
+/typechain-types

@@ -7,14 +7,16 @@
 // 4. Register the contract with Chainlink Keepers
 // 5. Run staging tests
 
-const { network, getNamedAccounts, ethers } = require("hardhat")
-const { developmentChains } = require("../../helper-hardhat-config")
-const { expect, assert } = require("chai")
+import { network, getNamedAccounts, ethers } from "hardhat"
+import { developmentChains } from "../../helper-hardhat-config"
+import { expect, assert } from "chai"
+import { Raffle } from "../../typechain-types"
+import { Address } from "hardhat-deploy/types"
 
 developmentChains.includes(network.name)
   ? describe.skip
   : describe("Raffle Staging Tests", async () => {
-      let raffle, deployer, entranceFee
+      let raffle: Raffle, deployer: Address, entranceFee: bigint
 
       beforeEach(async () => {
         deployer = (await getNamedAccounts()).deployer
@@ -28,11 +30,11 @@ developmentChains.includes(network.name)
           const startingTimestamp = await raffle.getTimestamp()
           const accounts = await ethers.getSigners()
 
-          await new Promise(async (resolve, reject) => {
+          await new Promise<void>(async (resolve, reject) => {
             let winnerStartingBalance = 0n
             // setup listener before we enter the raffle
             // just in case the blockchain moves REALLY fast
-            raffle.once("WinnerPicked", async () => {
+            raffle.once(raffle.getEvent("WinnerPicked"), async () => {
               console.log("WinnerPicked event fired!")
               try {
                 // add our asserts here
@@ -45,7 +47,7 @@ developmentChains.includes(network.name)
                 await expect(raffle.getPlayer(0)).to.be.reverted
                 assert.equal(recentWinner, accounts[0].address)
                 assert.equal(recentWinner, deployer)
-                assert.equal(raffleState, 0)
+                assert.equal(raffleState, 0n)
                 assert.equal(winnerEndingBalance, winnerStartingBalance + entranceFee)
                 assert(endingTimestamp > startingTimestamp)
 

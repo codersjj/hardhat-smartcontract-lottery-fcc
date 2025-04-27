@@ -1,17 +1,23 @@
-const { network, getNamedAccounts, deployments, ethers } = require("hardhat")
-const { assert, expect } = require("chai")
-const { developmentChains, networkConfig } = require("../../helper-hardhat-config")
+import { network, getNamedAccounts, deployments, ethers } from "hardhat"
+import { assert, expect } from "chai"
+import { Address } from "hardhat-deploy/types"
+import { developmentChains, networkConfig } from "../../helper-hardhat-config"
+import { Raffle, VRFCoordinatorV2_5Mock } from "../../typechain-types"
 
 // unit test only run on a local network
 !developmentChains.includes(network.name)
   ? describe.skip
   : describe("Raffle Unit Tests", () => {
-      let raffle, vrfCoordinatorV2_5Mock, deployer, entranceFee, interval
-      const chainId = network.config.chainId
-      const currNetworkConfig = networkConfig[chainId]
+      let raffle: Raffle
+      let vrfCoordinatorV2_5Mock: VRFCoordinatorV2_5Mock
+      let deployer: Address
+      let entranceFee: bigint
+      let interval: bigint
+      const chainId = network.config.chainId!
+      const currNetworkConfig = networkConfig[chainId as keyof typeof networkConfig]
 
       beforeEach(async () => {
-        deployer = (await getNamedAccounts()).deployer
+        deployer = (await getNamedAccounts()).deployer as Address
         await deployments.fixture("all")
 
         raffle = await ethers.getContract("Raffle", deployer)
@@ -25,8 +31,8 @@ const { developmentChains, networkConfig } = require("../../helper-hardhat-confi
           // Ideally we make our tests have just 1 assert per "it"
           const raffleState = await raffle.getRaffleState()
           // console.log("🚀 ~ it ~ raffleState:", raffleState)
-          assert.equal(raffleState, 0)
-          assert.equal(interval, currNetworkConfig.interval)
+          assert.equal(raffleState, 0n)
+          assert.equal(String(interval), currNetworkConfig.interval)
         })
       })
 
@@ -75,7 +81,7 @@ const { developmentChains, networkConfig } = require("../../helper-hardhat-confi
           await raffle.performUpkeep("0x")
           const raffleState = await raffle.getRaffleState()
           const { upkeepNeeded } = await raffle.checkUpkeep.staticCall("0x")
-          assert.equal(raffleState, 1)
+          assert.equal(raffleState, 1n)
           assert.equal(upkeepNeeded, false)
         })
 
@@ -122,10 +128,10 @@ const { developmentChains, networkConfig } = require("../../helper-hardhat-confi
           // console.log("txReceipt.events", txReceipt.events)
           // console.log("txReceipt.logs", txReceipt.logs)
           // https://docs.ethers.org/v6/api/contract/#ContractTransactionReceipt-logs
-          const requestId = txReceipt.logs[1].args[0]
+          const requestId = txReceipt?.logs[1].topics[1]
           console.log("🚀 ~ it ~ requestId:", requestId)
           const raffleState = await raffle.getRaffleState()
-          assert(requestId > 0)
+          assert(requestId)
           assert(raffleState === 1n)
         })
       })
@@ -164,11 +170,11 @@ const { developmentChains, networkConfig } = require("../../helper-hardhat-confi
           // performUpkeep (mock being Chainlink Keepers)
           // fulfillRandomWords (mock being Chainlink VRF)
           // we will have to wait for the fulfillRandomWords to be called
-          await new Promise(async (resolve, reject) => {
+          await new Promise<void>(async (resolve, reject) => {
             let winnerStartingBalance = 0n
 
             // Setting up the listener
-            raffle.once("WinnerPicked", async () => {
+            raffle.once(raffle.getEvent("WinnerPicked"), async () => {
               console.log("Found the event!")
               try {
                 const recentWinner = await raffle.getRecentWinner()
@@ -183,8 +189,8 @@ const { developmentChains, networkConfig } = require("../../helper-hardhat-confi
                 const winnerEndingBalance = await ethers.provider.getBalance(recentWinner)
 
                 assert(recentWinner, accounts[1].address)
-                assert.equal(raffleState, 0)
-                assert.equal(numberOfPlayers, 0)
+                assert.equal(raffleState, 0n)
+                assert.equal(numberOfPlayers, 0n)
                 assert(endingTimestamp > startingTimestamp)
                 assert.equal(
                   winnerEndingBalance,
@@ -207,10 +213,14 @@ const { developmentChains, networkConfig } = require("../../helper-hardhat-confi
               console.log("🚀 ~ awaitnewPromise ~ winnerStartingBalance:", winnerStartingBalance)
 
               // mocking the Chainlink VRF
-              await vrfCoordinatorV2_5Mock.fulfillRandomWords(
-                txReceipt.logs[1].args[0],
-                raffle.target,
-              )
+              if (txReceipt && txReceipt.logs[1] && "args" in txReceipt.logs[1]) {
+                await vrfCoordinatorV2_5Mock.fulfillRandomWords(
+                  txReceipt.logs[1].args[0],
+                  raffle.target,
+                )
+              } else {
+                throw new Error("Transaction receipt or logs not properly formatted")
+              }
             } catch (error) {
               console.log(error)
               reject(error)

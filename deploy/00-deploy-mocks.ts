@@ -1,5 +1,8 @@
-const { network, ethers } = require("hardhat")
-const { developmentChains } = require("../helper-hardhat-config")
+import { network, ethers } from "hardhat"
+import "@nomicfoundation/hardhat-ethers"
+import { DeployFunction } from "hardhat-deploy/types"
+import { HardhatRuntimeEnvironment } from "hardhat/types"
+import { developmentChains } from "../helper-hardhat-config"
 
 // see:
 // https://docs.chain.link/vrf/v2-5/subscription/test-locally#deploy-vrfcoordinatorv2_5mock
@@ -8,7 +11,8 @@ const BASE_FEE = ethers.parseEther("0.001") // the base fee
 const GAS_PRICE = ethers.parseUnits("50", "gwei") // the gas price (in LINK tokens)
 const WEI_PER_UNIT_LINK = ethers.parseEther("0.01") // the current LINK/ETH price
 
-module.exports = async ({ getNamedAccounts, deployments }) => {
+const deployMocks: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
+  const { getNamedAccounts, deployments } = hre
   const { deployer } = await getNamedAccounts()
   const { deploy, log } = deployments
   // const chainId = network.config.chainId
@@ -31,4 +35,6 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
   log("----------------------------------------")
 }
 
-module.exports.tags = ["all", "mocks"]
+export default deployMocks
+
+deployMocks.tags = ["all", "mocks"]
