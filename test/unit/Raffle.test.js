@@ -2,6 +2,7 @@ const { network, getNamedAccounts, deployments, ethers } = require("hardhat")
 const { assert, expect } = require("chai")
 const { developmentChains, networkConfig } = require("../../helper-hardhat-config")
 
+// unit test only run on a local network
 !developmentChains.includes(network.name)
   ? describe.skip
   : describe("Raffle Unit Tests", () => {
