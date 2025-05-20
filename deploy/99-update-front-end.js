@@ -46,11 +46,15 @@ async function updateContracts() {
   const contractAddresses = JSON.parse(
     fs.readFileSync(FRONT_END_CONTRACT_ADDRESSES_FILE_PATH, "utf8"),
   )
+  const chainIdAddressEntries = Object.entries(contractAddresses).map(([chainId, addresses]) => [
+    chainId,
+    addresses[0],
+  ])
+  const contractAddressObj = Object.fromEntries(chainIdAddressEntries)
+
   const abi = JSON.parse(fs.readFileSync(FRONT_END_ABI_FILE_PATH, "utf8"))
   const contractInfo = {
-    address: {
-      [network.config.chainId]: contractAddresses[network.config.chainId][0],
-    },
+    address: contractAddressObj,
     abi,
   }
   fs.writeFileSync(
